@@ -37,10 +37,30 @@ struct AscendMath {
   }
 };
 
+PrimExpr DispatchAscendMath(const PrimExpr &expr) {
+  const auto *call = expr.as<tirx::CallNode>();
+  TVM_FFI_ICHECK(call != nullptr);
+  if (!call->dtype.is_bfloat16()) {
+    return DispatchPureExtern<AscendMath>(expr);
+  }
+
+  const DataType result_dtype = call->dtype;
+  const DataType compute_dtype = DataType::Float(32, result_dtype.lanes());
+  ffi::Array<PrimExpr> args;
+  for (const PrimExpr &arg : call->args) {
+    args.push_back(
+        arg.dtype().is_bfloat16()
+            ? tirx::Cast(DataType::Float(32, arg.dtype().lanes()), arg)
+            : arg);
+  }
+  PrimExpr widened =
+      tirx::Call(compute_dtype, call->op, args, call->annotations);
+  return tirx::Cast(result_dtype, DispatchPureExtern<AscendMath>(widened));
+}
+
 #define REGISTER_ASCEND_INTRIN(OpName)                                         \
   TVM_REGISTER_OP("tirx." OpName)                                              \
-      .set_attr<FLowerIntrinsic>("ascend.FLowerIntrinsic",                     \
-                                 DispatchPureExtern<AscendMath>)
+      .set_attr<FLowerIntrinsic>("ascend.FLowerIntrinsic", DispatchAscendMath)
 
 REGISTER_ASCEND_INTRIN("sqrt");
 REGISTER_ASCEND_INTRIN("rsqrt");
