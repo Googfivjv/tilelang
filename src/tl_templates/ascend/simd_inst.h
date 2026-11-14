@@ -685,6 +685,18 @@ __simd_callee__ inline SrcVec vcpadd(SrcVec src, vector_bool mask, Mode mode) {
 }
 
 template <typename SrcVec, typename Mode>
+__simd_callee__ inline SrcVec vcpadd(SrcVec &dst, SrcVec src, vector_bool mask,
+                                     Mode mode) {
+  (void)mode;
+  SrcVec result = vcpadd(src, mask, MODE_ZEROING);
+  if constexpr (std::is_same<SrcVec, vector_f32>::value) {
+    return merge_masked(dst, result, reduction_result_mask<SrcVec>(PAT_VL32));
+  } else {
+    return merge_masked(dst, result, reduction_result_mask<SrcVec>(PAT_VL64));
+  }
+}
+
+template <typename SrcVec, typename Mode>
 __simd_callee__ inline widen_vec_t<SrcVec> vcadd(SrcVec src, vector_bool mask,
                                                  Mode mode) {
   widen_vec_t<SrcVec> dst;
@@ -742,6 +754,14 @@ __simd_callee__ inline SrcVec vcgadd(SrcVec src, vector_bool mask, Mode mode) {
 }
 
 template <typename SrcVec, typename Mode>
+__simd_callee__ inline SrcVec vcgadd(SrcVec &dst, SrcVec src, vector_bool mask,
+                                     Mode mode) {
+  (void)mode;
+  SrcVec result = vcgadd(src, mask, MODE_ZEROING);
+  return merge_masked(dst, result, reduction_result_mask<SrcVec>(PAT_VL8));
+}
+
+template <typename SrcVec, typename Mode>
 __simd_callee__ inline SrcVec vcgmax(SrcVec src, vector_bool mask, Mode mode) {
   SrcVec dst;
   asc_reduce_max_datablock(dst, src, mask);
@@ -749,10 +769,26 @@ __simd_callee__ inline SrcVec vcgmax(SrcVec src, vector_bool mask, Mode mode) {
 }
 
 template <typename SrcVec, typename Mode>
+__simd_callee__ inline SrcVec vcgmax(SrcVec &dst, SrcVec src, vector_bool mask,
+                                     Mode mode) {
+  (void)mode;
+  SrcVec result = vcgmax(src, mask, MODE_ZEROING);
+  return merge_masked(dst, result, reduction_result_mask<SrcVec>(PAT_VL8));
+}
+
+template <typename SrcVec, typename Mode>
 __simd_callee__ inline SrcVec vcgmin(SrcVec src, vector_bool mask, Mode mode) {
   SrcVec dst;
   asc_reduce_min_datablock(dst, src, mask);
   return dst;
+}
+
+template <typename SrcVec, typename Mode>
+__simd_callee__ inline SrcVec vcgmin(SrcVec &dst, SrcVec src, vector_bool mask,
+                                     Mode mode) {
+  (void)mode;
+  SrcVec result = vcgmin(src, mask, MODE_ZEROING);
+  return merge_masked(dst, result, reduction_result_mask<SrcVec>(PAT_VL8));
 }
 
 template <typename SrcVec, typename Mode>

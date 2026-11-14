@@ -1,5 +1,5 @@
-#include "codegen_ascend.h"
 #include "ascend/op/nd2nz.h"
+#include "codegen_ascend.h"
 
 #include <algorithm>
 #include <cmath>
@@ -81,6 +81,10 @@ bool IsSimdMergingCall(const CallNode *op,
 // CCE merging overloads validated on dav-3510. Keep the existing C API path
 // for other element types, including FP8 and 64-bit vector representations.
 bool SupportsNativeSimdMerging(const std::string &name, DataType dtype) {
+  if (name == "vcpadd" || name == "vcgadd" || name == "vcgmax" ||
+      name == "vcgmin") {
+    return false;
+  }
   const bool is_integer =
       (dtype.is_int() || dtype.is_uint()) &&
       (dtype.bits() == 8 || dtype.bits() == 16 || dtype.bits() == 32);
@@ -1310,10 +1314,11 @@ bool CodeGenTileLangAscend::EmitSimdMergingCall(const CallNode *op,
   // Explicit zeroing + select can cause predicate spills in masked updates.
   // Precision-specific SFU algorithms retain their software merging wrappers.
   static const std::unordered_set<std::string> kCapiMergingOps = {
-      "vadd",  "vsub",  "vmul",  "vdiv",  "vabsdif", "vmax",  "vmin",  "vand",
-      "vor",   "vxor",  "vshl",  "vshr",  "vln",     "vsqrt", "vabs",  "vneg",
-      "vrelu", "vnot",  "vexp",  "vdup",  "vdupv",   "vmaxs", "vmins", "vmuls",
-      "vshls", "vshrs", "vaxpy", "vcadd", "vcmax",   "vcmin"};
+      "vadd",  "vsub",  "vmul",   "vdiv",   "vabsdif", "vmax",  "vmin",
+      "vand",  "vor",   "vxor",   "vshl",   "vshr",    "vln",   "vsqrt",
+      "vabs",  "vneg",  "vrelu",  "vnot",   "vexp",    "vdup",  "vdupv",
+      "vmaxs", "vmins", "vmuls",  "vshls",  "vshrs",   "vaxpy", "vcadd",
+      "vcmax", "vcmin", "vcpadd", "vcgadd", "vcgmax",  "vcgmin"};
   const bool use_wrapper = resolved_name != intrinsic_name ||
                            (kCapiMergingOps.count(intrinsic_name) &&
                             !SupportsNativeSimdMerging(intrinsic_name, dtype));
